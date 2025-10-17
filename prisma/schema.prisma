@@ -1,0 +1,181 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum order_status {
+  pending
+  completed
+  failed
+}
+
+enum lesson_content_type {
+  video
+  article
+  quiz
+}
+
+enum gender {
+  male
+  female
+}
+
+model Roles {
+  role_id   Int        @id @default(autoincrement())
+  role_name String     @db.VarChar(50)
+  Users     UserBase[]
+}
+
+model UserBase {
+  user_id  Int     @id @default(autoincrement())
+  email    String  @unique @db.VarChar(255)
+  role_id  Int?
+  password String  @db.VarChar(255)
+  username String  @unique @db.VarChar(100)
+  firsname String  @db.VarChar(255)
+  lastname String  @db.VarChar(255)
+  no_hp    String? @db.VarChar(50)
+
+  Role      Roles?            @relation(fields: [role_id], references: [role_id])
+  Profile   ProfileUser?
+  Courses   CourseBase[]
+  Orders    Orders[]
+  Purchased PurchasedCourse[]
+  Reviews   ReviewCourse[]
+}
+
+model ProfileUser {
+  profile_id    Int       @id @default(autoincrement())
+  firsname      String?   @db.VarChar(255)
+  lastname      String?   @db.VarChar(255)
+  no_hp         String?   @db.VarChar(50)
+  job           String?   @db.VarChar(255)
+  working_place String?   @db.VarChar(255)
+  gender        gender?
+  country_code  String?   @db.VarChar(10)
+  created_date  DateTime  @default(now())
+  updated_date  DateTime?
+  user_id       Int       @unique
+
+  UserBase UserBase @relation(fields: [user_id], references: [user_id])
+}
+
+model CourseCategories {
+  category_id   Int          @id @default(autoincrement())
+  category_name String       @db.VarChar(100)
+  Courses       CourseBase[]
+}
+
+model CourseBase {
+  course_id    Int       @id @default(autoincrement())
+  course_name  String    @db.VarChar(255)
+  description  String?
+  user_id      Int?
+  category_id  Int?
+  rating       Float?
+  review_count Int?      @default(0)
+  price        Decimal   @db.Decimal(10, 2)
+  duration     Int?
+  certificate  Boolean   @default(false)
+  createdat    DateTime  @default(now())
+  updatedat    DateTime?
+
+  UserBase        UserBase?         @relation(fields: [user_id], references: [user_id])
+  Category        CourseCategories? @relation(fields: [category_id], references: [category_id])
+  OrderItems      OrderItem[]
+  PurchasedCourse PurchasedCourse[]
+  Reviews         ReviewCourse[]
+  Sections        SectionCourse[]
+}
+
+model Orders {
+  order_id    Int           @id @default(autoincrement())
+  user_id     Int
+  total_price Decimal       @db.Decimal(10, 2)
+  order_date  DateTime?
+  status      order_status?
+
+  UserBase UserBase    @relation(fields: [user_id], references: [user_id])
+  Items    OrderItem[]
+}
+
+model OrderItem {
+  order_item_id     Int     @id @default(autoincrement())
+  course_id         Int
+  order_id          Int
+  price_at_purchase Decimal @db.Decimal(10, 2)
+
+  Course CourseBase @relation(fields: [course_id], references: [course_id])
+  Order  Orders     @relation(fields: [order_id], references: [order_id])
+}
+
+model PurchasedCourse {
+  purchase_id             Int       @id @default(autoincrement())
+  course_id               Int
+  user_id                 Int
+  purchase_date           DateTime?
+  progress                Float?    @default(0.0)
+  completion_date         DateTime?
+  certificate_code        String?   @unique
+  certificate_issued_date DateTime?
+
+  Course   CourseBase @relation(fields: [course_id], references: [course_id])
+  UserBase UserBase   @relation(fields: [user_id], references: [user_id])
+
+  @@unique([course_id, user_id])
+}
+
+model ReviewCourse {
+  review_id Int      @id @default(autoincrement())
+  user_id   Int
+  course_id Int
+  rating    Float
+  review    String?
+  createdat DateTime @default(now())
+
+  UserBase UserBase   @relation(fields: [user_id], references: [user_id])
+  Course   CourseBase @relation(fields: [course_id], references: [course_id])
+
+  @@unique([user_id, course_id])
+}
+
+model SectionCourse {
+  section_id Int    @id @default(autoincrement())
+  course_id  Int
+  title      String @db.VarChar(255)
+  order      Int?
+
+  Course  CourseBase      @relation(fields: [course_id], references: [course_id])
+  Lessons LessonSection[]
+}
+
+model LessonSection {
+  lesson_id    Int                  @id @default(autoincrement())
+  section_id   Int
+  title        String               @db.VarChar(255)
+  order        Int?
+  content_type lesson_content_type?
+
+  Section SectionCourse  @relation(fields: [section_id], references: [section_id])
+  Content LessonContent?
+}
+
+model LessonContent {
+  content_id   Int     @id @default(autoincrement())
+  lesson_id    Int     @unique
+  video_url    String? @db.VarChar(255)
+  article_text String?
+
+  Lesson LessonSection @relation(fields: [lesson_id], references: [lesson_id])
+}
